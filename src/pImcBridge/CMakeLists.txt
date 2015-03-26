@@ -33,5 +33,4 @@ TARGET_LINK_LIBRARIES(pImcBridge
    ${MOOS_LIBRARIES}
    ${SYSTEM_LIBS} 
    ${DUNE_LIB}  
-   pthread
 )
