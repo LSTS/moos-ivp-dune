@@ -18,13 +18,14 @@ public:
   bool imcSend(Message * msg, std::string addr, int port);
   bool sendToDune(Message * msg);
   bool bind(int port);
+  bool unbind();
   ~ImcBridge();
   ImcBridge();
 private:
   UDPSocket sock_send, sock_receive;
   DUNE::IO::Poll m_poll;
   uint8_t* bfr;
-  int m_DunePort;
+  int m_DunePort, m_LocalPort;
   std::string m_DuneHost;
 };
 

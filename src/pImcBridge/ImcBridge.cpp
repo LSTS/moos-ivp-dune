@@ -3,11 +3,12 @@
 ImcBridge::ImcBridge() {
   //defaults
   m_DunePort = 6002;
+  m_LocalPort = 6969;
   m_DuneHost = "localhost";
 }
 
 ImcBridge::~ImcBridge() {
-  // empty
+  unbind();
 }
 
 
@@ -27,22 +28,43 @@ bool ImcBridge::OnStartUp () {
   if (!m_MissionReader.GetConfigurationParam("DuneHost", m_DuneHost))
     MOOSTrace ("Warning parameter \"DuneHost\" not specified. Using \"%s\"\n" , m_DuneHost.c_str());
 
+  if (!m_MissionReader.GetConfigurationParam("LocalPort", m_LocalPort))
+      MOOSTrace ("Warning parameter \"LocalPort\" not specified. Using \"%d\"\n" , m_LocalPort);
+
+  MOOSTrace ("Binding to port %d...\n", m_LocalPort);
+  bind(m_LocalPort);
 } 
 
 bool ImcBridge::OnConnectToServer () {
   //return(Register("X", 0.0));
-	return true;
+  MOOSTrace ("OnConnect\n");
+  return true;
 } 
   
 bool ImcBridge::Iterate ( ) {
   //std :: vector<unsigned char> X(100) ;
-  //Notify("X" ,X) ;
-
+  //
   Message * msg;
 
+  int count = 0;
   while ((msg = imcPoll()) != NULL) {
-      std::cout << "Received message of type " << msg->getName() << std::endl;
+      MOOSTrace ("Received message of type %s\n", msg->getName());
       free(msg);
+      count ++;
+  }
+  Abort * ab = new Abort();
+  MOOSTrace ("%lf\n", ab->getTimeStamp());
+  sendToDune(ab);
+
+  MOOSTrace ("%d messages received from DUNE\n", count);
+
+  if (count == 0) {
+      std :: vector<unsigned char> CONN(0);
+      Notify("CONNECTED",CONN) ;
+  }
+  else {
+      std :: vector<unsigned char> CONN(1);
+      Notify("CONNECTED",CONN) ;
   }
 
   return true ;
@@ -64,11 +86,19 @@ bool ImcBridge::bind(int port) {
   return true;
 }
 
+bool ImcBridge::unbind() {
+  m_poll.remove(sock_receive);
+  return true;
+}
+
 bool ImcBridge::sendToDune(Message * msg) {
   return imcSend(msg, m_DuneHost, m_DunePort);
 }
 
 bool ImcBridge::imcSend(Message * msg, std::string addr, int port) {
+  msg->setTimeStamp();
+  msg->setSource(65001);
+
   DUNE::Utils::ByteBuffer bb;
   try {
     IMC::Packet::serialize(msg, bb);

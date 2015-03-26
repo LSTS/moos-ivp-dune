@@ -9,13 +9,14 @@ ProcessConfig = pImcBridge
    AppTick   = 1
 
    // Connection to DUNE
+   LocalPort = 6969
    DunePort  = 6002
    DuneHost  = localhost
 }
 
 ProcessConfig = ANTLER
 {
-  Run = pImcBridge @ NewConsole = true
+  Run = pImcBridge @ NewConsole = true, path=bin
   Run = MOOSDB @ NewConsole = true
 }
 
