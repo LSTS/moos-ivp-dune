@@ -1,16 +1,14 @@
 ##############################################################################
-# FILE:        moos-ivp-extend/README
-# DATE:        2014/01/02
-# DESCRIPTION: Contains important information regarding the moos-ivp-extend
-#              repository.
+# FILE:        moos-ivp-dune/README
+# DATE:        2015/03/26
+# DESCRIPTION: Allows connecting with a vehicle running DUNE.             
 ##############################################################################
 
 #=============================================================================
 # Introduction
 #=============================================================================
-The moos-ivp-extend repository contains examples for extending the MOOS-IvP
-Autonomy system. This includes a MOOS application and an IvP behavior.
-
+The moos-ivp-dune repository contains applications for connecting with a DUNE
+system.
 
 #=============================================================================
 # Directory Structure
