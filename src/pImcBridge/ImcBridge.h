@@ -19,6 +19,7 @@ public:
   bool sendToDune(Message * msg);
   bool bind(int port);
   bool unbind();
+  void processMessage(Message * message);
   ~ImcBridge();
   ImcBridge();
 private:
@@ -27,5 +28,6 @@ private:
   uint8_t* bfr;
   int m_DunePort, m_LocalPort, m_ImcId;
   std::string m_DuneHost;
+  int iteration;
 };
 

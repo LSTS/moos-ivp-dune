@@ -7,6 +7,7 @@ ImcBridge::ImcBridge() {
   m_ImcId = 65001;
   m_DuneHost = "localhost";
   bfr = new uint8_t[65535];
+  iteration = 0;
 }
 
 ImcBridge::~ImcBridge() {
@@ -37,29 +38,41 @@ bool ImcBridge::OnStartUp () {
     MOOSTrace ("Warning parameter \"ImcId\" not specified. Using \"%d\"\n" , m_ImcId);
 
   MOOSTrace ("Binding to port %d...\n", m_LocalPort);
-  bind(m_LocalPort);
+
+  return bind(m_LocalPort);
 } 
 
 bool ImcBridge::OnConnectToServer () {
   //return(Register("X", 0.0));
-  MOOSTrace ("OnConnect\n");
   return true;
 } 
   
 bool ImcBridge::Iterate ( ) {
   //std :: vector<unsigned char> X(100) ;
-  //
+
   Message * msg;
 
   int count = 0;
   while ((msg = imcPoll()) != NULL) {
-      MOOSTrace ("Received message of type %s\n", msg->getName());
+      processMessage(msg);
       free(msg);
       count ++;
   }
-  Abort * ab = new Abort();
-  MOOSTrace ("%lf\n", ab->getTimeStamp());
-  sendToDune(ab);
+
+  if (iteration % 10 == 0) {
+    Announce * ann = new Announce();
+    ann->sys_name = "MOOS";
+    ann->sys_type = SYSTEMTYPE_STATICSENSOR;
+    char services[128];
+    sprintf(services, "imc+udp://192.168.0.101:%d", m_LocalPort);
+    ann->services = services;
+    sendToDune(ann);
+    free(ann);
+  }
+
+  Heartbeat * beat = new Heartbeat();
+  sendToDune(beat);
+  free(beat);
 
   MOOSTrace ("%d messages received from DUNE\n", count);
 
@@ -71,11 +84,17 @@ bool ImcBridge::Iterate ( ) {
       std :: vector<unsigned char> CONN(1);
       Notify("CONNECTED",CONN) ;
   }
-
+  iteration++;
   return true ;
 }
 
+void ImcBridge::processMessage(Message * message) {
+  //nothing for now
+  MOOSTrace("Processing %s message\n", message->getName());
+}
+
 Message * ImcBridge::imcPoll() {
+
   if (m_poll.poll(0)) {
     Address addr;
     uint16_t rv = sock_receive.read(bfr, 65535, &addr);
@@ -112,9 +131,10 @@ bool ImcBridge::imcSend(Message * msg, std::string addr, int port) {
   }
   catch (std::runtime_error& e)
   {
-    std::cerr << "ERROR: " << ": " << e.what() << "\n";
+    MOOSTrace ("ERROR sending %s to %s:%d: %s\n", msg->getName(), addr.c_str(), port, e.what());
     return false;
   }
+
   return true;
 }
 
