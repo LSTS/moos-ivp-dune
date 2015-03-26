@@ -25,7 +25,7 @@ private:
   UDPSocket sock_send, sock_receive;
   DUNE::IO::Poll m_poll;
   uint8_t* bfr;
-  int m_DunePort, m_LocalPort;
+  int m_DunePort, m_LocalPort, m_ImcId;
   std::string m_DuneHost;
 };
 

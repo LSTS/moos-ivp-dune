@@ -4,7 +4,9 @@ ImcBridge::ImcBridge() {
   //defaults
   m_DunePort = 6002;
   m_LocalPort = 6969;
+  m_ImcId = 65001;
   m_DuneHost = "localhost";
+  bfr = new uint8_t[65535];
 }
 
 ImcBridge::~ImcBridge() {
@@ -29,7 +31,10 @@ bool ImcBridge::OnStartUp () {
     MOOSTrace ("Warning parameter \"DuneHost\" not specified. Using \"%s\"\n" , m_DuneHost.c_str());
 
   if (!m_MissionReader.GetConfigurationParam("LocalPort", m_LocalPort))
-      MOOSTrace ("Warning parameter \"LocalPort\" not specified. Using \"%d\"\n" , m_LocalPort);
+    MOOSTrace ("Warning parameter \"LocalPort\" not specified. Using \"%d\"\n" , m_LocalPort);
+
+  if (!m_MissionReader.GetConfigurationParam("ImcId", m_ImcId))
+    MOOSTrace ("Warning parameter \"ImcId\" not specified. Using \"%d\"\n" , m_ImcId);
 
   MOOSTrace ("Binding to port %d...\n", m_LocalPort);
   bind(m_LocalPort);
@@ -97,7 +102,7 @@ bool ImcBridge::sendToDune(Message * msg) {
 
 bool ImcBridge::imcSend(Message * msg, std::string addr, int port) {
   msg->setTimeStamp();
-  msg->setSource(65001);
+  msg->setSource(m_ImcId);
 
   DUNE::Utils::ByteBuffer bb;
   try {
