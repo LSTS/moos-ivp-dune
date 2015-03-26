@@ -49,8 +49,14 @@ Message * ImcBridge::imcPoll() {
   return NULL;
 }
 
-bool ImcBridge::sendToDune(Message * msg) {
+bool ImcBridge::bind(int port) {
+  sock_receive.bind(port, Address::Any, true);
+  m_poll.add(sock_receive);
+  return true;
+}
 
+bool ImcBridge::sendToDune(Message * msg) {
+  return imcSend(msg, m_DuneHost, m_DunePort);
 }
 
 bool ImcBridge::imcSend(Message * msg, std::string addr, int port) {

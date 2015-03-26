@@ -17,6 +17,7 @@ public:
   Message * imcPoll();
   bool imcSend(Message * msg, std::string addr, int port);
   bool sendToDune(Message * msg);
+  bool bind(int port);
   ~ImcBridge();
   ImcBridge();
 private:
