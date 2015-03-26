@@ -1,0 +1,5 @@
+In order to compile this module you need DUNE installed in your system.
+To install dune, follow compilation instructions in https://github.com/LSTS/dune
+and after compilation run 'make install' (as root).
+
+
