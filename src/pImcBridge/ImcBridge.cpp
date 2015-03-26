@@ -30,12 +30,21 @@ bool ImcBridge::OnStartUp () {
 } 
 
 bool ImcBridge::OnConnectToServer () {
-  return(Register("X", 0.0));
+  //return(Register("X", 0.0));
+	return true;
 } 
   
 bool ImcBridge::Iterate ( ) {
-  std :: vector<unsigned char> X(100) ; 
-  Notify("X" ,X) ;
+  //std :: vector<unsigned char> X(100) ;
+  //Notify("X" ,X) ;
+
+  Message * msg;
+
+  while ((msg = imcPoll()) != NULL) {
+      std::cout << "Received message of type " << msg->getName() << std::endl;
+      free(msg);
+  }
+
   return true ;
 }
 
