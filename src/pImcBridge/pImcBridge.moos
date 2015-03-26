@@ -1,0 +1,15 @@
+// MOOS file
+
+ServerHost = localhost
+ServerPort = 9000
+
+ProcessConfig = pXRelayTest
+{
+   // How fast to iterate
+   AppTick   = 1
+
+   // Connection to DUNE
+   DunePort  = 6002
+   DuneHost  = localhost
+}
+
