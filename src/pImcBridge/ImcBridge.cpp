@@ -1,7 +1,9 @@
 #include "ImcBridge.h"
 
 ImcBridge::ImcBridge() {
-  // empty
+  //defaults
+  m_DunePort = 6002;
+  m_DuneHost = "localhost";
 }
 
 ImcBridge::~ImcBridge() {
@@ -18,6 +20,15 @@ bool ImcBridge::OnNewMail (MOOSMSG_LIST & Mail) {
   return(true);
 }
   
+bool ImcBridge::OnStartUp () {
+  if (!m_MissionReader.GetConfigurationParam("DunePort", m_DunePort))
+    MOOSTrace ("Warning parameter \"DunePort\" not specified. Using \"%d\"\n" , m_DunePort);
+  
+  if (!m_MissionReader.GetConfigurationParam("DuneHost", m_DuneHost))
+    MOOSTrace ("Warning parameter \"DuneHost\" not specified. Using \"%s\"\n" , m_DuneHost.c_str());
+
+} 
+
 bool ImcBridge::OnConnectToServer () {
   return(Register("X", 0.0));
 } 
@@ -36,6 +47,10 @@ Message * ImcBridge::imcPoll() {
     return msg;
   }
   return NULL;
+}
+
+bool ImcBridge::sendToDune(Message * msg) {
+
 }
 
 bool ImcBridge::imcSend(Message * msg, std::string addr, int port) {
