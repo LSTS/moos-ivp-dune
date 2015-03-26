@@ -3,7 +3,7 @@
 ServerHost = localhost
 ServerPort = 9000
 
-ProcessConfig = pXRelayTest
+ProcessConfig = pImcBridge
 {
    // How fast to iterate
    AppTick   = 1
