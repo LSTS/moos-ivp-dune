@@ -7,7 +7,7 @@ ImcBridge::ImcBridge() {
   m_LocalPort = 6969;
   m_ImcId = 65001;
   m_DuneHost = "localhost";
-  m_ControlMode = "";
+  m_ControlMode = "PLAN";
   m_DesiredAltitude = m_DesiredDepth = m_DesiredHeading = m_DesiredLat =
       m_DesiredLon = m_DesiredSpeed = 0;
   bfr = new uint8_t[65535];
@@ -18,11 +18,40 @@ ImcBridge::~ImcBridge() {
 }
 
 
-bool ImcBridge::OnNewMail (MOOSMSG_LIST & Mail) {
-  // process it
-  MOOSMSG_LIST::iterator q;
-  for(q=Mail.begin(); q!=Mail.end(); q++) {
-    q->Trace();
+bool ImcBridge::OnNewMail (MOOSMSG_LIST & NewMail) {
+
+  bool speed_changed = false, heading_changed = false, loc_changed = false;
+
+  MOOSMSG_LIST::iterator p;
+  for (p = NewMail.begin(); p != NewMail.end(); p++) {
+      CMOOSMsg &rMsg = *p;
+      if (strcmp(rMsg.GetKey().c_str(), "CONTROL_MODE") == 0) {
+	  m_ControlMode = rMsg.GetAsString();
+      }
+      if (strcmp(rMsg.GetKey().c_str(), "DESIRED_HEADING") == 0) {
+	  m_DesiredHeading = rMsg.m_dfVal;
+      }
+      else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_SPEED") == 0) {
+	  m_DesiredSpeed = rMsg.m_dfVal;
+      }
+      else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_DEPTH") == 0) {
+	  m_DesiredDepth = rMsg.m_dfVal;
+      }
+      else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_LAT") == 0) {
+	  m_DesiredLat = rMsg.m_dfVal;
+      }
+      else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_LON") == 0) {
+	  m_DesiredLon = rMsg.m_dfVal;
+      }
+      else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_PLAN_ID") == 0) {
+	  std::string plan_id = rMsg.GetAsString();
+	  if (strcmp("ABORT", plan_id.c_str()) == 0)  {
+	      MOOSTrace("SENDING ABORT!");
+	      sendToDune(createAbortMessage());
+	  }
+	  else if (m_ControlMode == "PLAN")
+	    sendToDune(createStartPlanMessage(plan_id));
+      }
   }
   return(true);
 }
@@ -54,13 +83,19 @@ bool ImcBridge::OnConnectToServer () {
   status = status && Register("IVPHELM_ENGAGED", 0);
   status = status && Register("VEHICLE_UNDERWAY", 0);
 
+  // "IVP" control
   status = status && Register("DESIRED_SPEED", 0);
   status = status && Register("DESIRED_HEADING", 0);
   status = status && Register("DESIRED_DEPTH", 0);
 
-  status = status && Register("DESIRED_PLAN_ID", 0);
+  // "WPT" control
   status = status && Register("DESIRED_LAT", 0);
   status = status && Register("DESIRED_LON", 0);
+
+  // "PLAN" control
+  status = status && Register("DESIRED_PLAN_ID", 0);
+
+  status = status && Register("CONTROL_MODE", 0);
 
   return status;
 } 
@@ -113,18 +148,26 @@ void ImcBridge::processMessage(Message * message) {
     VehicleState * msg = dynamic_cast<IMC::VehicleState *>(message);
 
     if (msg->op_mode == VehicleState::VS_SERVICE)
-      Notify("NAV_MODE", "READY");
-    else if (msg->op_mode == VehicleState::VS_MANEUVER || msg->op_mode == VehicleState::VS_CALIBRATION)
-      Notify("NAV_MODE", "EXECUTING");
-    else
-      Notify("NAV_MODE", "ERROR");
+      Notify("NAV_CONTROL_MODE", "PLAN");
+    else if (msg->op_mode == VehicleState::VS_ERROR || msg->op_mode == VehicleState::VS_BOOT)
+      Notify("NAV_CONTROL_MODE", "ERROR");
   }
   else if (type == PlanControlState::getIdStatic()) {
       PlanControlState * msg = dynamic_cast<IMC::PlanControlState *>(message);
-      if (msg->state == PlanControlState::PCS_EXECUTING)
+      if (msg->state == PlanControlState::PCS_EXECUTING) {
 	Notify("NAV_PLAN_ID", msg->plan_id);
+	if (msg->plan_id == IVP_PLAN_ID) {
+	    Notify("NAV_CONTROL_MODE", "IVP");
+	}
+	else if (msg->plan_id == WPT_PLAN_ID) {
+	    Notify("NAV_CONTROL_MODE", "WPT");
+	}
+	else {
+	    Notify("NAV_CONTROL_MODE", "PLAN");
+	}
+      }
       else
-	Notify("NAV_PLAN_ID", "READY");
+	Notify("NAV_PLAN_ID", "");
   }
   else if (type == GpsFix::getIdStatic()) {
       GpsFix * msg = dynamic_cast<IMC::GpsFix *>(message);

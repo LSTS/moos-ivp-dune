@@ -22,6 +22,6 @@ ProcessConfig = ANTLER
 {
   Run = pImcBridge @ path=bin
   Run = MOOSDB @ NewConsole = true
+  Run = uMS
 }
-
 
