@@ -28,6 +28,14 @@ src              - Directory for source code
 
 
 #=============================================================================
+# Compilation requirements
+#=============================================================================
+You need DUNE library installed in your system. Please follow DUNE compilation instructions in 
+https://github.com/LSTS/dune and then install it in your computer with the command:
+
+   $ make install
+
+#=============================================================================
 # Build Instructions
 #=============================================================================
 #--------------------
@@ -79,4 +87,3 @@ variable.
 ##############################################################################
 #                               END of README
 ##############################################################################
-
