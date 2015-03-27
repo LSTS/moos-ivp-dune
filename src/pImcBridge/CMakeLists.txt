@@ -1,6 +1,6 @@
 #--------------------------------------------------------
-# The CMakeLists.txt for:                     pExampleApp
-# Author(s):                                Mike Benjamin
+# The CMakeLists.txt for:                      pImcBRidge
+# Author(s):                                   Jose Pinto
 #--------------------------------------------------------
 
 # Set System Specific Libraries
