@@ -11,7 +11,7 @@ cd ~ && svn co https://oceanai.mit.edu/svn/moos-ivp-aro/releases/moos-ivp-14.7.1
 
 # compile all headless binaries
 export IVP_BUILD_GUI_CODE=OFF
-cd moos-ivp && ./build-moos.sh && ./build-ivp.sh
+cd moos-ivp && ./build-moos.sh -j4 && ./build-ivp.sh -j4
 
 # add MOOS to system path
 echo export PATH=$PATH:~/moos-ivp/ivp/bin >> ~/.bashrc
