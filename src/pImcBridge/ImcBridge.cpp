@@ -1,4 +1,5 @@
 #include "ImcBridge.h"
+#include "IMCUtilities.h"
 
 ImcBridge::ImcBridge() {
   //defaults
@@ -6,8 +7,10 @@ ImcBridge::ImcBridge() {
   m_LocalPort = 6969;
   m_ImcId = 65001;
   m_DuneHost = "localhost";
+  m_ControlMode = "";
+  m_DesiredAltitude = m_DesiredDepth = m_DesiredHeading = m_DesiredLat =
+      m_DesiredLon = m_DesiredSpeed = 0;
   bfr = new uint8_t[65535];
-  iteration = 0;
 }
 
 ImcBridge::~ImcBridge() {
@@ -37,14 +40,29 @@ bool ImcBridge::OnStartUp () {
   if (!m_MissionReader.GetConfigurationParam("ImcId", m_ImcId))
     MOOSTrace ("Warning parameter \"ImcId\" not specified. Using \"%d\"\n" , m_ImcId);
 
-  MOOSTrace ("Binding to port %d...\n", m_LocalPort);
+  MOOSTrace ("Sending IMC data to %s:%d\n", m_DuneHost.c_str(), m_DunePort);
+  sock_send.connect(Address(m_DuneHost.c_str()), m_DunePort);
 
+  MOOSTrace ("Binding to port %d\n", m_LocalPort);
   return bind(m_LocalPort);
 } 
 
 bool ImcBridge::OnConnectToServer () {
-  //return(Register("X", 0.0));
-  return true;
+
+  bool status = true;
+
+  status = status && Register("IVPHELM_ENGAGED", 0);
+  status = status && Register("VEHICLE_UNDERWAY", 0);
+
+  status = status && Register("DESIRED_SPEED", 0);
+  status = status && Register("DESIRED_HEADING", 0);
+  status = status && Register("DESIRED_DEPTH", 0);
+
+  status = status && Register("DESIRED_PLAN_ID", 0);
+  status = status && Register("DESIRED_LAT", 0);
+  status = status && Register("DESIRED_LON", 0);
+
+  return status;
 } 
   
 bool ImcBridge::Iterate ( ) {
@@ -59,38 +77,59 @@ bool ImcBridge::Iterate ( ) {
       count ++;
   }
 
-  if (iteration % 10 == 0) {
-    Announce * ann = new Announce();
-    ann->sys_name = "MOOS";
-    ann->sys_type = SYSTEMTYPE_STATICSENSOR;
-    char services[128];
-    sprintf(services, "imc+udp://192.168.0.101:%d", m_LocalPort);
-    ann->services = services;
-    sendToDune(ann);
-    free(ann);
-  }
-
-  Heartbeat * beat = new Heartbeat();
+  Heartbeat * beat = createHeartBeatMessage();
   sendToDune(beat);
   free(beat);
 
-  MOOSTrace ("%d messages received from DUNE\n", count);
+  //MOOSTrace ("%d messages received from DUNE\n", count);
 
   if (count == 0) {
-      std :: vector<unsigned char> CONN(0);
-      Notify("CONNECTED",CONN) ;
+      Notify("DUNE_CONNECTED",0.0) ;
   }
   else {
-      std :: vector<unsigned char> CONN(1);
-      Notify("CONNECTED",CONN) ;
+      Notify("DUNE_CONNECTED",1.0) ;
   }
-  iteration++;
   return true ;
 }
 
 void ImcBridge::processMessage(Message * message) {
-  //nothing for now
-  MOOSTrace("Processing %s message\n", message->getName());
+
+  int type = message->getId();
+
+  if (type == EstimatedState::getIdStatic()) {
+    EstimatedState * msg = dynamic_cast<IMC::EstimatedState *>(message);
+
+    double lat = msg->lat;
+    double lon = msg->lon;
+    WGS84::displace(msg->x, msg->y, &lat, &lon);
+
+    Notify("NAV_LAT", Angles::degrees(lat));
+    Notify("NAV_LON", Angles::degrees(lon));
+    Notify("NAV_DEPTH", msg->depth);
+    Notify("NAV_ALTITUDE", msg->alt);
+
+  }
+  else if (type == VehicleState::getIdStatic()) {
+    VehicleState * msg = dynamic_cast<IMC::VehicleState *>(message);
+
+    if (msg->op_mode == VehicleState::VS_SERVICE)
+      Notify("NAV_MODE", "READY");
+    else if (msg->op_mode == VehicleState::VS_MANEUVER || msg->op_mode == VehicleState::VS_CALIBRATION)
+      Notify("NAV_MODE", "EXECUTING");
+    else
+      Notify("NAV_MODE", "ERROR");
+  }
+  else if (type == PlanControlState::getIdStatic()) {
+      PlanControlState * msg = dynamic_cast<IMC::PlanControlState *>(message);
+      if (msg->state == PlanControlState::PCS_EXECUTING)
+	Notify("NAV_PLAN_ID", msg->plan_id);
+      else
+	Notify("NAV_PLAN_ID", "READY");
+  }
+  else if (type == GpsFix::getIdStatic()) {
+      GpsFix * msg = dynamic_cast<IMC::GpsFix *>(message);
+      Notify("NAV_GPS_SATELLITES", msg->satellites);
+  }
 }
 
 Message * ImcBridge::imcPoll() {
@@ -105,7 +144,7 @@ Message * ImcBridge::imcPoll() {
 }
 
 bool ImcBridge::bind(int port) {
-  sock_receive.bind(port, Address::Any, true);
+  sock_receive.bind(port, Address::Any, false);
   m_poll.add(sock_receive);
   return true;
 }

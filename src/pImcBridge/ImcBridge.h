@@ -4,8 +4,6 @@
 
 #include "MOOS/libMOOS/App/MOOSApp.h"
 #include <DUNE/DUNE.hpp>
-#include <DUNE/Network.hpp>
-#include <DUNE/Network/Fragments.hpp>
 using DUNE_NAMESPACES;
 
 class ImcBridge : public CMOOSApp {
@@ -28,6 +26,8 @@ private:
   uint8_t* bfr;
   int m_DunePort, m_LocalPort, m_ImcId;
   std::string m_DuneHost;
-  int iteration;
+
+  double m_DesiredLat, m_DesiredLon, m_DesiredSpeed, m_DesiredHeading, m_DesiredDepth, m_DesiredAltitude;
+  std::string m_ControlMode;
 };
 

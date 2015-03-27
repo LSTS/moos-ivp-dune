@@ -1,5 +1,4 @@
-// MOOS file
-
+// MOOSDB connection
 ServerHost = localhost
 ServerPort = 9000
 
@@ -8,10 +7,14 @@ ProcessConfig = pImcBridge
    // How fast to iterate
    AppTick   = 1
 
-   // Connection to DUNE
+   // Local port to listen for DUNE messages
    LocalPort = 6969
+   
+   // Host where DUNE is listening
    DunePort  = 6970
-   DuneHost  = 192.168.0.101
+   DuneHost  = localhost
+   
+   // IMC ID to be used in all outgoing messages
    ImcId     = 65001
 }
 
