@@ -27,7 +27,9 @@ private:
   int m_DunePort, m_LocalPort, m_ImcId;
   std::string m_DuneHost;
 
-  double m_DesiredLat, m_DesiredLon, m_DesiredSpeed, m_DesiredHeading, m_DesiredDepth, m_DesiredAltitude;
+  std::string m_NavPlanId;
+
+  double m_DesiredLat, m_DesiredLon, m_DesiredSpeed, m_DesiredHeading, m_DesiredDepth, m_DesiredAltitude, m_NavLat, m_NavLon;
   std::string m_ControlMode;
 };
 

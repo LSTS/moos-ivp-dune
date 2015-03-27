@@ -9,7 +9,7 @@ ImcBridge::ImcBridge() {
   m_DuneHost = "localhost";
   m_ControlMode = "PLAN";
   m_DesiredAltitude = m_DesiredDepth = m_DesiredHeading = m_DesiredLat =
-      m_DesiredLon = m_DesiredSpeed = 0;
+      m_DesiredLon = m_DesiredSpeed = m_NavLat = m_NavLon = 0;
   bfr = new uint8_t[65535];
 }
 
@@ -27,6 +27,17 @@ bool ImcBridge::OnNewMail (MOOSMSG_LIST & NewMail) {
       CMOOSMsg &rMsg = *p;
       if (strcmp(rMsg.GetKey().c_str(), "CONTROL_MODE") == 0) {
 	  m_ControlMode = rMsg.GetAsString();
+
+	  if (strcmp(m_ControlMode.c_str(), "WPT") == 0) {
+	      PlanControl *pc = createWPTPlan(m_ImcId);
+	      sendToDune(pc);
+	      free(pc);
+	  }
+	  else if (strcmp(m_ControlMode.c_str(), "IVP") == 0) {
+	      PlanControl *pc = createIVPPlan(m_ImcId);
+	      sendToDune(pc);
+	      free(pc);
+	  }
       }
       if (strcmp(rMsg.GetKey().c_str(), "DESIRED_HEADING") == 0) {
 	  m_DesiredHeading = rMsg.m_dfVal;
@@ -52,19 +63,19 @@ bool ImcBridge::OnNewMail (MOOSMSG_LIST & NewMail) {
 	      free(msg);
 	  }
 	  else if (m_ControlMode == "PLAN") {
-	    PlanControl * msg = createStartPlanMessage(plan_id);
-	    sendToDune(msg);
-	    free(msg);
+	      PlanControl * msg = createStartPlanMessage(plan_id);
+	      sendToDune(msg);
+	      free(msg);
 	  }
       }
   }
   return(true);
 }
-  
+
 bool ImcBridge::OnStartUp () {
   if (!m_MissionReader.GetConfigurationParam("DunePort", m_DunePort))
     MOOSTrace ("Warning parameter \"DunePort\" not specified. Using \"%d\"\n" , m_DunePort);
-  
+
   if (!m_MissionReader.GetConfigurationParam("DuneHost", m_DuneHost))
     MOOSTrace ("Warning parameter \"DuneHost\" not specified. Using \"%s\"\n" , m_DuneHost.c_str());
 
@@ -104,7 +115,7 @@ bool ImcBridge::OnConnectToServer () {
 
   return status;
 } 
-  
+
 bool ImcBridge::Iterate ( ) {
   //std :: vector<unsigned char> X(100) ;
 
@@ -127,6 +138,22 @@ bool ImcBridge::Iterate ( ) {
   else {
       Notify("NAV_CONNECTED","true") ;
   }
+
+  if (count > 0) {
+
+      if (strcmp(m_ControlMode.c_str(), "WPT") == 0 && strcmp(m_NavPlanId.c_str(), WPT_PLAN_ID) == 0) {
+	  MOOSTrace("Send WPT reference!\n");
+	  Reference * ref = createWptReference(m_DesiredLat, m_DesiredLon, m_DesiredSpeed, m_DesiredDepth);
+	  sendToDune(ref);
+	  free(ref);
+      }
+      else if (strcmp(m_ControlMode.c_str(), "IVP") == 0 && strcmp(m_NavPlanId.c_str(), IVP_PLAN_ID) == 0) {
+	  MOOSTrace("Send IVP reference!\n");
+	  Reference * ref = createIVPReference(m_NavLat, m_NavLon, m_DesiredHeading, m_DesiredSpeed, m_DesiredDepth);
+	  sendToDune(ref);
+	  free(ref);
+      }
+  }
   return true ;
 }
 
@@ -135,41 +162,48 @@ void ImcBridge::processMessage(Message * message) {
   int type = message->getId();
 
   if (type == EstimatedState::getIdStatic()) {
-    EstimatedState * msg = dynamic_cast<IMC::EstimatedState *>(message);
+      EstimatedState * msg = dynamic_cast<IMC::EstimatedState *>(message);
 
-    double lat = msg->lat;
-    double lon = msg->lon;
-    WGS84::displace(msg->x, msg->y, &lat, &lon);
+      double lat = msg->lat;
+      double lon = msg->lon;
+      WGS84::displace(msg->x, msg->y, &lat, &lon);
 
-    Notify("NAV_LAT", Angles::degrees(lat));
-    Notify("NAV_LON", Angles::degrees(lon));
-    Notify("NAV_DEPTH", msg->depth);
-    Notify("NAV_ALTITUDE", msg->alt);
+      m_NavLat = Angles::degrees(lat);
+      m_NavLon = Angles::degrees(lon);
+
+      Notify("NAV_LAT", m_NavLat);
+      Notify("NAV_LON", m_NavLon);
+      Notify("NAV_DEPTH", msg->depth);
+      Notify("NAV_ALTITUDE", msg->alt);
   }
   else if (type == VehicleState::getIdStatic()) {
-    VehicleState * msg = dynamic_cast<IMC::VehicleState *>(message);
+      VehicleState * msg = dynamic_cast<IMC::VehicleState *>(message);
 
-    if (msg->op_mode == VehicleState::VS_SERVICE)
-      Notify("NAV_CONTROL_MODE", "PLAN");
-    else if (msg->op_mode == VehicleState::VS_ERROR || msg->op_mode == VehicleState::VS_BOOT)
-      Notify("NAV_CONTROL_MODE", "ERROR");
+      if (msg->op_mode == VehicleState::VS_SERVICE)
+	Notify("NAV_CONTROL_MODE", "PLAN");
+      else if (msg->op_mode == VehicleState::VS_ERROR || msg->op_mode == VehicleState::VS_BOOT)
+	Notify("NAV_CONTROL_MODE", "ERROR");
   }
   else if (type == PlanControlState::getIdStatic()) {
       PlanControlState * msg = dynamic_cast<IMC::PlanControlState *>(message);
+      m_NavPlanId = "";
       if (msg->state == PlanControlState::PCS_EXECUTING) {
-	Notify("NAV_PLAN_ID", msg->plan_id);
-	if (msg->plan_id == IVP_PLAN_ID) {
-	    Notify("NAV_CONTROL_MODE", "IVP");
-	}
-	else if (msg->plan_id == WPT_PLAN_ID) {
-	    Notify("NAV_CONTROL_MODE", "WPT");
-	}
-	else {
-	    Notify("NAV_CONTROL_MODE", "PLAN");
-	}
+	  m_NavPlanId = msg->plan_id;
+	  if (msg->plan_id == IVP_PLAN_ID) {
+	      Notify("NAV_CONTROL_MODE", "IVP");
+	  }
+	  else if (msg->plan_id == WPT_PLAN_ID) {
+	      Notify("NAV_CONTROL_MODE", "WPT");
+	  }
+	  else {
+	      Notify("NAV_CONTROL_MODE", "PLAN");
+	  }
       }
-      else
-	Notify("NAV_PLAN_ID", "");
+      else {
+	  Notify("NAV_CONTROL_MODE", "PLAN");
+      }
+
+      Notify("NAV_PLAN_ID", m_NavPlanId);
   }
   else if (type == GpsFix::getIdStatic()) {
       GpsFix * msg = dynamic_cast<IMC::GpsFix *>(message);
@@ -180,10 +214,10 @@ void ImcBridge::processMessage(Message * message) {
 Message * ImcBridge::imcPoll() {
 
   if (m_poll.poll(0)) {
-    Address addr;
-    uint16_t rv = sock_receive.read(bfr, 65535, &addr);
-    IMC::Message * msg = IMC::Packet::deserialize(bfr, rv);
-    return msg;
+      Address addr;
+      uint16_t rv = sock_receive.read(bfr, 65535, &addr);
+      IMC::Message * msg = IMC::Packet::deserialize(bfr, rv);
+      return msg;
   }
   return NULL;
 }
@@ -209,14 +243,14 @@ bool ImcBridge::imcSend(Message * msg, std::string addr, int port) {
 
   DUNE::Utils::ByteBuffer bb;
   try {
-    IMC::Packet::serialize(msg, bb);
-    return sock_send.write(bb.getBuffer(), msg->getSerializationSize(),
-        Address(addr.c_str()), port);
+      IMC::Packet::serialize(msg, bb);
+      return sock_send.write(bb.getBuffer(), msg->getSerializationSize(),
+			     Address(addr.c_str()), port);
   }
   catch (std::runtime_error& e)
   {
-    MOOSTrace ("ERROR sending %s to %s:%d: %s\n", msg->getName(), addr.c_str(), port, e.what());
-    return false;
+      MOOSTrace ("ERROR sending %s to %s:%d: %s\n", msg->getName(), addr.c_str(), port, e.what());
+      return false;
   }
 
   return true;
