@@ -7,7 +7,7 @@ sudo apt-get install subversion git g++ cmake make
 git clone https://github.com/LSTS/dune.git && mkdir -p dune/build && cd dune/build && cmake .. && make -j4 && sudo make install
 
 # checkout MOOS-IVP
-svn co https://oceanai.mit.edu/svn/moos-ivp-aro/releases/moos-ivp-14.7.1 moos-ivp
+cd ~ && svn co https://oceanai.mit.edu/svn/moos-ivp-aro/releases/moos-ivp-14.7.1 moos-ivp
 
 # compile all headless binaries
 export IVP_BUILD_GUI_CODE=OFF
