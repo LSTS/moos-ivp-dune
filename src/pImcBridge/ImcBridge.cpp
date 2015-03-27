@@ -46,11 +46,16 @@ bool ImcBridge::OnNewMail (MOOSMSG_LIST & NewMail) {
       else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_PLAN_ID") == 0) {
 	  std::string plan_id = rMsg.GetAsString();
 	  if (strcmp("ABORT", plan_id.c_str()) == 0)  {
-	      MOOSTrace("SENDING ABORT!");
-	      sendToDune(createAbortMessage());
+	      MOOSTrace("SENDING ABORT!\n");
+	      PlanControl * msg = createStopPlanMessage();
+	      sendToDune(msg);
+	      free(msg);
 	  }
-	  else if (m_ControlMode == "PLAN")
-	    sendToDune(createStartPlanMessage(plan_id));
+	  else if (m_ControlMode == "PLAN") {
+	    PlanControl * msg = createStartPlanMessage(plan_id);
+	    sendToDune(msg);
+	    free(msg);
+	  }
       }
   }
   return(true);
@@ -116,13 +121,11 @@ bool ImcBridge::Iterate ( ) {
   sendToDune(beat);
   free(beat);
 
-  //MOOSTrace ("%d messages received from DUNE\n", count);
-
   if (count == 0) {
-      Notify("DUNE_CONNECTED",0.0) ;
+      Notify("NAV_CONNECTED","false") ;
   }
   else {
-      Notify("DUNE_CONNECTED",1.0) ;
+      Notify("NAV_CONNECTED","true") ;
   }
   return true ;
 }
@@ -142,7 +145,6 @@ void ImcBridge::processMessage(Message * message) {
     Notify("NAV_LON", Angles::degrees(lon));
     Notify("NAV_DEPTH", msg->depth);
     Notify("NAV_ALTITUDE", msg->alt);
-
   }
   else if (type == VehicleState::getIdStatic()) {
     VehicleState * msg = dynamic_cast<IMC::VehicleState *>(message);

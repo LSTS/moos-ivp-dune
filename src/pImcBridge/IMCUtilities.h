@@ -14,7 +14,7 @@ PlanControl * createStartPlanMessage(std::string plan_id) {
   return msg;
 }
 
-PlanControl * createStopPlanMessage(std::string plan_id) {
+PlanControl * createStopPlanMessage() {
   PlanControl * msg = new PlanControl();
   msg->type = PlanControl::PC_REQUEST;
   msg->op = PlanControl::PC_STOP;
