@@ -3,13 +3,14 @@
 
 ImcBridge::ImcBridge() {
   //defaults
-  m_DunePort = 6002;
-  m_LocalPort = 6969;
-  m_ImcId = 65001;
-  m_DuneHost = "localhost";
-  m_ControlMode = "PLAN";
-  m_DesiredAltitude = m_DesiredDepth = m_DesiredHeading = m_DesiredLat =
-      m_DesiredLon = m_DesiredSpeed = m_NavLat = m_NavLon = 0;
+  cfg_dune_port = 6002;
+  cfg_local_port = 6969;
+  cfg_imc_id = 65001;
+  cfg_lat_origin = cfg_lon_origin = 0;
+  cfg_dune_host = "localhost";
+  nav_control_mode = "PLAN";
+  ivp_helm_state = "PARK";
+  ivp_desired_depth = ivp_desired_heading = ivp_desired_speed = nav_lat = nav_lon = 0;
   bfr = new uint8_t[65535];
 }
 
@@ -25,34 +26,29 @@ bool ImcBridge::OnNewMail (MOOSMSG_LIST & NewMail) {
   MOOSMSG_LIST::iterator p;
   for (p = NewMail.begin(); p != NewMail.end(); p++) {
       CMOOSMsg &rMsg = *p;
-      if (strcmp(rMsg.GetKey().c_str(), "CONTROL_MODE") == 0) {
-	  m_ControlMode = rMsg.GetAsString();
+      if (strcmp(rMsg.GetKey().c_str(), "IVPHELM_STATE") == 0) {
 
-	  if (strcmp(m_ControlMode.c_str(), "WPT") == 0) {
-	      PlanControl *pc = createWPTPlan(m_ImcId);
+	  ivp_helm_state = rMsg.GetAsString();
+
+	  if (strcmp(ivp_helm_state.c_str(), "DRIVE") == 0 && strcmp(nav_control_mode.c_str(), "IVP") != 0) {
+	      PlanControl *pc = createIVPPlan(cfg_imc_id);
 	      sendToDune(pc);
 	      free(pc);
 	  }
-	  else if (strcmp(m_ControlMode.c_str(), "IVP") == 0) {
-	      PlanControl *pc = createIVPPlan(m_ImcId);
+	  else if (strcmp(ivp_helm_state.c_str(), "PARK") == 0 && strcmp(nav_control_mode.c_str(), "IVP") == 0) {
+	      PlanControl *pc = createStopPlanMessage();
 	      sendToDune(pc);
 	      free(pc);
 	  }
       }
       if (strcmp(rMsg.GetKey().c_str(), "DESIRED_HEADING") == 0) {
-	  m_DesiredHeading = rMsg.m_dfVal;
+	  ivp_desired_heading = rMsg.m_dfVal;
       }
       else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_SPEED") == 0) {
-	  m_DesiredSpeed = rMsg.m_dfVal;
+	  ivp_desired_speed = rMsg.m_dfVal;
       }
       else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_DEPTH") == 0) {
-	  m_DesiredDepth = rMsg.m_dfVal;
-      }
-      else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_LAT") == 0) {
-	  m_DesiredLat = rMsg.m_dfVal;
-      }
-      else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_LON") == 0) {
-	  m_DesiredLon = rMsg.m_dfVal;
+	  ivp_desired_depth = rMsg.m_dfVal;
       }
       else if (strcmp(rMsg.GetKey().c_str(), "DESIRED_PLAN_ID") == 0) {
 	  std::string plan_id = rMsg.GetAsString();
@@ -62,7 +58,7 @@ bool ImcBridge::OnNewMail (MOOSMSG_LIST & NewMail) {
 	      sendToDune(msg);
 	      free(msg);
 	  }
-	  else if (m_ControlMode == "PLAN") {
+	  else {
 	      PlanControl * msg = createStartPlanMessage(plan_id);
 	      sendToDune(msg);
 	      free(msg);
@@ -73,45 +69,43 @@ bool ImcBridge::OnNewMail (MOOSMSG_LIST & NewMail) {
 }
 
 bool ImcBridge::OnStartUp () {
-  if (!m_MissionReader.GetConfigurationParam("DunePort", m_DunePort))
-    MOOSTrace ("Warning parameter \"DunePort\" not specified. Using \"%d\"\n" , m_DunePort);
+  if (!m_MissionReader.GetConfigurationParam("DunePort", cfg_dune_port))
+    MOOSTrace ("Warning parameter \"DunePort\" not specified. Using \"%d\"\n" , cfg_dune_port);
 
-  if (!m_MissionReader.GetConfigurationParam("DuneHost", m_DuneHost))
-    MOOSTrace ("Warning parameter \"DuneHost\" not specified. Using \"%s\"\n" , m_DuneHost.c_str());
+  if (!m_MissionReader.GetConfigurationParam("DuneHost", cfg_dune_host))
+    MOOSTrace ("Warning parameter \"DuneHost\" not specified. Using \"%s\"\n" , cfg_dune_host.c_str());
 
-  if (!m_MissionReader.GetConfigurationParam("LocalPort", m_LocalPort))
-    MOOSTrace ("Warning parameter \"LocalPort\" not specified. Using \"%d\"\n" , m_LocalPort);
+  if (!m_MissionReader.GetConfigurationParam("LocalPort", cfg_local_port))
+    MOOSTrace ("Warning parameter \"LocalPort\" not specified. Using \"%d\"\n" , cfg_local_port);
 
-  if (!m_MissionReader.GetConfigurationParam("ImcId", m_ImcId))
-    MOOSTrace ("Warning parameter \"ImcId\" not specified. Using \"%d\"\n" , m_ImcId);
+  if (!m_MissionReader.GetConfigurationParam("ImcId", cfg_imc_id))
+    MOOSTrace ("Warning parameter \"ImcId\" not specified. Using \"%d\"\n" , cfg_imc_id);
 
-  MOOSTrace ("Sending IMC data to %s:%d\n", m_DuneHost.c_str(), m_DunePort);
-  sock_send.connect(Address(m_DuneHost.c_str()), m_DunePort);
+  if (!m_MissionReader.GetValue("LatOrigin", cfg_lat_origin))
+    MOOSTrace ("Warning parameter \"LatOrigin\" not specified. Using \"%d\"\n" , cfg_lat_origin);
 
-  MOOSTrace ("Binding to port %d\n", m_LocalPort);
-  return bind(m_LocalPort);
+  if (!m_MissionReader.GetValue("LongOrigin", cfg_lon_origin))
+    MOOSTrace ("Warning parameter \"LongOrigin\" not specified. Using \"%d\"\n" , cfg_lon_origin);
+
+  MOOSTrace ("Sending IMC data to %s:%d\n", cfg_dune_host.c_str(), cfg_dune_port);
+  sock_send.connect(Address(cfg_dune_host.c_str()), cfg_dune_port);
+
+  MOOSTrace ("Binding to port %d\n", cfg_local_port);
+  return bind(cfg_local_port);
 } 
 
 bool ImcBridge::OnConnectToServer () {
 
   bool status = true;
 
-  status = status && Register("IVPHELM_ENGAGED", 0);
-  status = status && Register("VEHICLE_UNDERWAY", 0);
-
   // "IVP" control
-  status = status && Register("DESIRED_SPEED", 0);
-  status = status && Register("DESIRED_HEADING", 0);
-  status = status && Register("DESIRED_DEPTH", 0);
-
-  // "WPT" control
-  status = status && Register("DESIRED_LAT", 0);
-  status = status && Register("DESIRED_LON", 0);
+  status = status && Register("IVPHELM_STATE", 1.0);
+  status = status && Register("DESIRED_SPEED", 1.0);
+  status = status && Register("DESIRED_HEADING", 1.0);
+  status = status && Register("DESIRED_DEPTH", 1.0);
 
   // "PLAN" control
   status = status && Register("DESIRED_PLAN_ID", 0);
-
-  status = status && Register("CONTROL_MODE", 0);
 
   return status;
 } 
@@ -140,16 +134,9 @@ bool ImcBridge::Iterate ( ) {
   }
 
   if (count > 0) {
-
-      if (strcmp(m_ControlMode.c_str(), "WPT") == 0 && strcmp(m_NavPlanId.c_str(), WPT_PLAN_ID) == 0) {
-	  MOOSTrace("Send WPT reference!\n");
-	  Reference * ref = createWptReference(m_DesiredLat, m_DesiredLon, m_DesiredSpeed, m_DesiredDepth);
-	  sendToDune(ref);
-	  free(ref);
-      }
-      else if (strcmp(m_ControlMode.c_str(), "IVP") == 0 && strcmp(m_NavPlanId.c_str(), IVP_PLAN_ID) == 0) {
+      if (strcmp(ivp_helm_state.c_str(), "DRIVE") == 0 && strcmp(nav_control_mode.c_str(), "IVP") == 0) {
 	  MOOSTrace("Send IVP reference!\n");
-	  Reference * ref = createIVPReference(m_NavLat, m_NavLon, m_DesiredHeading, m_DesiredSpeed, m_DesiredDepth);
+	  Reference * ref = createIVPReference(nav_lat, nav_lon, ivp_desired_heading, ivp_desired_speed, ivp_desired_depth);
 	  sendToDune(ref);
 	  free(ref);
       }
@@ -168,42 +155,38 @@ void ImcBridge::processMessage(Message * message) {
       double lon = msg->lon;
       WGS84::displace(msg->x, msg->y, &lat, &lon);
 
-      m_NavLat = Angles::degrees(lat);
-      m_NavLon = Angles::degrees(lon);
+      nav_lat = Angles::degrees(lat);
+      nav_lon = Angles::degrees(lon);
 
-      Notify("NAV_LAT", m_NavLat);
-      Notify("NAV_LON", m_NavLon);
+      double x, y;
+
+      WGS84::displacement(Angles::radians(cfg_lat_origin), Angles::radians(cfg_lon_origin), 0, lat, lon, 0, &x, &y);
+
+      Notify("NAV_X", y);
+      Notify("NAV_Y", x);
+      Notify("NAV_LAT", lat);
+      Notify("NAV_LON", lon);
+      Notify("NAV_SPEED", msg->u);
       Notify("NAV_DEPTH", msg->depth);
-      Notify("NAV_ALTITUDE", msg->alt);
-  }
-  else if (type == VehicleState::getIdStatic()) {
-      VehicleState * msg = dynamic_cast<IMC::VehicleState *>(message);
-
-      if (msg->op_mode == VehicleState::VS_SERVICE)
-	Notify("NAV_CONTROL_MODE", "PLAN");
-      else if (msg->op_mode == VehicleState::VS_ERROR || msg->op_mode == VehicleState::VS_BOOT)
-	Notify("NAV_CONTROL_MODE", "ERROR");
+      Notify("NAV_HEADING", Angles::degrees(msg->psi));
   }
   else if (type == PlanControlState::getIdStatic()) {
       PlanControlState * msg = dynamic_cast<IMC::PlanControlState *>(message);
-      m_NavPlanId = "";
+      nav_plan_id = "";
       if (msg->state == PlanControlState::PCS_EXECUTING) {
-	  m_NavPlanId = msg->plan_id;
+	  nav_plan_id = msg->plan_id;
 	  if (msg->plan_id == IVP_PLAN_ID) {
-	      Notify("NAV_CONTROL_MODE", "IVP");
-	  }
-	  else if (msg->plan_id == WPT_PLAN_ID) {
-	      Notify("NAV_CONTROL_MODE", "WPT");
+	      nav_control_mode = "IVP";
 	  }
 	  else {
-	      Notify("NAV_CONTROL_MODE", "PLAN");
+	      nav_control_mode = "PLAN";
 	  }
       }
       else {
-	  Notify("NAV_CONTROL_MODE", "PLAN");
+	  nav_control_mode = "PLAN";
       }
-
-      Notify("NAV_PLAN_ID", m_NavPlanId);
+      Notify("NAV_CONTROL_MODE", nav_control_mode);
+      Notify("NAV_PLAN_ID", nav_plan_id);
   }
   else if (type == GpsFix::getIdStatic()) {
       GpsFix * msg = dynamic_cast<IMC::GpsFix *>(message);
@@ -234,12 +217,12 @@ bool ImcBridge::unbind() {
 }
 
 bool ImcBridge::sendToDune(Message * msg) {
-  return imcSend(msg, m_DuneHost, m_DunePort);
+  return imcSend(msg, cfg_dune_host, cfg_dune_port);
 }
 
 bool ImcBridge::imcSend(Message * msg, std::string addr, int port) {
   msg->setTimeStamp();
-  msg->setSource(m_ImcId);
+  msg->setSource(cfg_imc_id);
 
   DUNE::Utils::ByteBuffer bb;
   try {

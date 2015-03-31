@@ -2,6 +2,9 @@
 ServerHost = localhost
 ServerPort = 9000
 
+LatOrigin = 41.185008
+LongOrigin = -8.704647
+
 ProcessConfig = pImcBridge
 {
    // How fast to iterate

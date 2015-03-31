@@ -21,15 +21,26 @@ public:
   ~ImcBridge();
   ImcBridge();
 private:
+
+  // process configuration
+  int cfg_dune_port, cfg_local_port, cfg_imc_id;
+  std::string cfg_dune_host;
+
+  // mission configuration
+  double cfg_lat_origin, cfg_lon_origin;
+
+  // IVP variables
+  std::string ivp_helm_state;
+  double ivp_desired_speed, ivp_desired_heading, ivp_desired_depth;
+
+  // Variables coming from nav computer
+  std::string nav_plan_id, nav_control_mode;
+  double nav_lat, nav_lon;
+
+  // IMC-related
   UDPSocket sock_send, sock_receive;
   DUNE::IO::Poll m_poll;
   uint8_t* bfr;
-  int m_DunePort, m_LocalPort, m_ImcId;
-  std::string m_DuneHost;
 
-  std::string m_NavPlanId;
-
-  double m_DesiredLat, m_DesiredLon, m_DesiredSpeed, m_DesiredHeading, m_DesiredDepth, m_DesiredAltitude, m_NavLat, m_NavLon;
-  std::string m_ControlMode;
 };
 
