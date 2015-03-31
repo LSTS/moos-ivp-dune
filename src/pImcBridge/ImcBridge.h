@@ -36,6 +36,7 @@ private:
   // Variables coming from nav computer
   std::string nav_plan_id, nav_control_mode;
   double nav_lat, nav_lon;
+  bool nav_aborted;
 
   // IMC-related
   UDPSocket sock_send, sock_receive;

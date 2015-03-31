@@ -9,9 +9,11 @@ ImcBridge::ImcBridge() {
   cfg_lat_origin = cfg_lon_origin = 0;
   cfg_dune_host = "localhost";
   nav_control_mode = "PLAN";
+  nav_aborted = false;
   ivp_helm_state = "PARK";
   ivp_desired_depth = ivp_desired_heading = ivp_desired_speed = nav_lat = nav_lon = 0;
   bfr = new uint8_t[65535];
+
 }
 
 ImcBridge::~ImcBridge() {
@@ -23,13 +25,15 @@ bool ImcBridge::OnNewMail (MOOSMSG_LIST & NewMail) {
 
   bool speed_changed = false, heading_changed = false, loc_changed = false;
 
+
   MOOSMSG_LIST::iterator p;
   for (p = NewMail.begin(); p != NewMail.end(); p++) {
+      if (nav_aborted)
+          continue;
+
       CMOOSMsg &rMsg = *p;
       if (strcmp(rMsg.GetKey().c_str(), "IVPHELM_STATE") == 0) {
-
 	  ivp_helm_state = rMsg.GetAsString();
-
 	  if (strcmp(ivp_helm_state.c_str(), "DRIVE") == 0 && strcmp(nav_control_mode.c_str(), "IVP") != 0) {
 	      PlanControl *pc = createIVPPlan(cfg_imc_id);
 	      sendToDune(pc);
@@ -133,9 +137,11 @@ bool ImcBridge::Iterate ( ) {
       Notify("NAV_CONNECTED","true") ;
   }
 
+  if (nav_aborted)
+    return true;
+
   if (count > 0) {
       if (strcmp(ivp_helm_state.c_str(), "DRIVE") == 0 && strcmp(nav_control_mode.c_str(), "IVP") == 0) {
-	  MOOSTrace("Send IVP reference!\n");
 	  Reference * ref = createIVPReference(nav_lat, nav_lon, ivp_desired_heading, ivp_desired_speed, ivp_desired_depth);
 	  sendToDune(ref);
 	  free(ref);
@@ -148,6 +154,12 @@ void ImcBridge::processMessage(Message * message) {
 
   int type = message->getId();
 
+  if (type == Abort::getIdStatic()) {
+      // user has aborted operation. Stop MOOS.
+      nav_aborted = true;
+      MOOSTrace("Execution aborted by the user.\n");
+      Notify("NAV_ABORTED", "true");
+  }
   if (type == EstimatedState::getIdStatic()) {
       EstimatedState * msg = dynamic_cast<IMC::EstimatedState *>(message);
 
