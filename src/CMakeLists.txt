@@ -18,6 +18,7 @@ ADD_SUBDIRECTORY(lib_behaviors-test)
 ADD_SUBDIRECTORY(pXRelayTest)
 ADD_SUBDIRECTORY(pExampleApp)
 ADD_SUBDIRECTORY(pImcBridge)
+ADD_SUBDIRECTORY(pMantaComms)
 
 ##############################################################################
 #                           END of CMakeLists.txt

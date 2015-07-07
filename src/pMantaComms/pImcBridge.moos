@@ -1,0 +1,30 @@
+// MOOSDB connection
+ServerHost = localhost
+ServerPort = 9000
+
+LatOrigin = 41.185008
+LongOrigin = -8.704647
+
+ProcessConfig = pImcBridge
+{
+   // How fast to iterate
+   AppTick   = 1
+
+   // Local port to listen for DUNE messages
+   LocalPort = 6969
+   
+   // Host where DUNE is listening
+   DunePort  = 6970
+   DuneHost  = localhost
+   
+   // IMC ID to be used in all outgoing messages
+   ImcId     = 65001
+}
+
+ProcessConfig = ANTLER
+{
+  Run = pImcBridge @ path=bin
+  Run = MOOSDB @ NewConsole = true
+  Run = uMS
+}
+
