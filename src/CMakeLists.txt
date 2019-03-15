@@ -19,6 +19,7 @@ ADD_SUBDIRECTORY(pXRelayTest)
 ADD_SUBDIRECTORY(pExampleApp)
 ADD_SUBDIRECTORY(pImcBridge)
 ADD_SUBDIRECTORY(pMantaComms)
+ADD_SUBDIRECTORY(pMoos2Imc)
 
 ##############################################################################
 #                           END of CMakeLists.txt
