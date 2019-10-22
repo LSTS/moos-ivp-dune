@@ -1,17 +1,19 @@
-#===========================================================================
+#=======================================================================
 # FILE:  moos-ivp-extend/CMakeLists.txt
 # DATE:  2012/07/24
 # INFO:  Top-level CMakeLists.txt file for the moos-ivp-extend project
 # NAME:  Maintained by Mike Benjamin - Original setup by Christian Convey
 #        Chris Gagner, and tips borrowed from Dave Billin
-#===========================================================================
+#=======================================================================
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 PROJECT( IVP_EXTEND )
 
-#=============================================================================
+set (CMAKE_CXX_STANDARD 11)
+
+#=======================================================================
 # Set the output directories for the binary and library files
-#=============================================================================
+#=======================================================================
 
 GET_FILENAME_COMPONENT(IVP_EXTEND_BIN_DIR "${CMAKE_SOURCE_DIR}/bin"  ABSOLUTE )
 GET_FILENAME_COMPONENT(IVP_EXTEND_LIB_DIR "${CMAKE_SOURCE_DIR}/lib"  ABSOLUTE )
@@ -23,15 +25,15 @@ SET( LIBRARY_OUTPUT_DIRECTORY "${IVP_EXTEND_LIB_DIR}" CACHE PATH "" )
 SET( EXECUTABLE_OUTPUT_PATH    "${IVP_EXTEND_BIN_DIR}" CACHE PATH "" )
 SET( RUNTIME_OUTPUT_DIRECTORY "${IVP_EXTEND_BIN_DIR}"  CACHE PATH "" )
 
-#=============================================================================
+#=======================================================================
 # Find MOOS
-#=============================================================================
+#=======================================================================
 find_package(MOOS 10.0)
 INCLUDE_DIRECTORIES(${MOOS_INCLUDE_DIRS})
 
-#=============================================================================
+#=======================================================================
 # Find the "moos-ivp" base directory
-#=============================================================================
+#=======================================================================
 
 # Search for the moos-ivp folder
 find_path( MOOSIVP_SOURCE_TREE_BASE
@@ -47,9 +49,9 @@ if (NOT MOOSIVP_SOURCE_TREE_BASE)
     return()
 endif()
 
-#=============================================================================
+#======================================================================
 # Specify where to find IvP's headers and libraries...
-#=============================================================================
+#======================================================================
 
 FILE(GLOB IVP_INCLUDE_DIRS ${MOOSIVP_SOURCE_TREE_BASE}/ivp/src/lib_* )
 INCLUDE_DIRECTORIES(${IVP_INCLUDE_DIRS})
@@ -57,9 +59,9 @@ INCLUDE_DIRECTORIES(${IVP_INCLUDE_DIRS})
 FILE(GLOB IVP_LIBRARY_DIRS ${MOOSIVP_SOURCE_TREE_BASE}/lib )
 LINK_DIRECTORIES(${IVP_LIBRARY_DIRS})
 
-#=============================================================================
+#======================================================================
 # Specify Compiler Flags
-#=============================================================================
+#======================================================================
 IF( ${WIN32} )
    #---------------------------------------------
    # Windows Compiler Flags
@@ -88,7 +90,7 @@ ELSE( ${WIN32} )
       SET( WALL_ON OFF CACHE BOOL 
          "tell me about all compiler warnings (-Wall) ")
       IF(WALL_ON)
-         SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+         SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall" -C++11)
       ENDIF( WALL_ON)
    ELSE(CMAKE_COMPILER_IS_GNUCXX)
     
@@ -96,7 +98,7 @@ ELSE( ${WIN32} )
 
 ENDIF( ${WIN32} )
 
-#=============================================================================
+#=======================================================================
 # Add Subdirectories
-#=============================================================================
+#=======================================================================
 ADD_SUBDIRECTORY( src )
